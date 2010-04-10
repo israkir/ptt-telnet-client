@@ -1,0 +1,24 @@
+<ID>CCF</ID>
+<PASS>1234</PASS>
+<BOARD>Gossiping</BOARD>
+<BOARD>Hate</BOARD> 
+<BOARD>Joke</BOARD>
+<BOARD>Test</BOARD>
+<P>TEST!!!!!</P>
+<CONTENT>This is a testing. 
+                              by Kenneth</CONTENT>
+<P>TEST Again!!!!!</P>
+<CONTENT>This is a testing2. 
+                              by Kenneth</CONTENT>
+<IP>NTUTA</IP>
+<W>CCF</W>
+<CONTENT>hihi  XD</CONTENT>
+<W>CCF</W>
+<CONTENT>see you~</CONTENT>
+<M>CCF</M>
+<TITLE>A mail</TITLE>
+<CONTENT>I send a mail.</CONTENT>
+<M>NTUTA</M>
+<TITLE>A mail2</TITLE>
+<CONTENT>I send a mail 2.</CONTENT>
+<EXIT>
