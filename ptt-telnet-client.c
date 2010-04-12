@@ -1,15 +1,15 @@
 /**
  ============================================================================
- Name				: ptt-telnet-client.c
- Author				: Hakki Caner KIRMIZI, #b96902133
+ Name			: ptt-telnet-client.c
+ Author			: Hakki Caner KIRMIZI, #b96902133
  Description		: A C program which is based tag-reading to get directive in 
-				  	  an input file for BBS: ptt.cc
+		an input file for BBS: ptt.cc
  Environment		: Ubuntu 9.10 (karmic), Kernel Linux 2.6.31-14-generic
- C Editor			: Vim 7.2.245, gedit 2.28.0
- Compiler			: gcc (Ubuntu 4.4.1-4ubuntu9) 4.4.1
+ C Editor		: Vim 7.2.245, gedit 2.28.0
+ Compiler		: gcc (Ubuntu 4.4.1-4ubuntu9) 4.4.1
  Version Control	: svn, version 1.6.5 (r38866)
  Project Hosting	: https://code.google.com/p/ptt-telnet-client/
- Licence			: GNU General Public License v3
+ Licence		: GNU General Public License v3
 
  References			: 
  --------------------
