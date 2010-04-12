@@ -11,10 +11,10 @@
  Project Hosting	: https://code.google.com/p/ptt-telnet-client/
  Licence			: GNU General Public License v3
 
- References	: 
- -----------
+ References			: 
+ --------------------
  1) Non-printing ASCII characters: 
-    http://www.physics.udel.edu/~watson/scen103/ascii.html 
+    http://www.physics.udel.edu/~watson/scen103/ascii.html
  ============================================================================
  */
 
@@ -39,9 +39,6 @@ const char search_board[] = "s";
 size_t input_buffer_size = 0;
 int socket_fd;
 int output_fd;
-//const char carriage_ret = 13;
-//const char newline = 10;
-
 
 /* Typedefs */
 
@@ -57,6 +54,7 @@ static void send_data(int iswrite, const char *tagname, const char *data, int le
 static void enter_username(char *buffer);
 static void enter_password(char *buffer);
 static void goto_board(char *buffer);
+static void create_title(char *buffer);
 
 /** 
  * main:
