@@ -3,7 +3,7 @@
  Name			: ptt-telnet-client.c
  Author			: Hakki Caner KIRMIZI, #b96902133
  Description		: A C program which is based tag-reading to get directive in 
-		an input file for BBS: ptt.cc
+			    an input file for BBS: ptt.cc
  Environment		: Ubuntu 9.10 (karmic), Kernel Linux 2.6.31-14-generic
  C Editor		: Vim 7.2.245, gedit 2.28.0
  Compiler		: gcc (Ubuntu 4.4.1-4ubuntu9) 4.4.1
@@ -11,7 +11,7 @@
  Project Hosting	: https://code.google.com/p/ptt-telnet-client/
  Licence		: GNU General Public License v3
 
- References			: 
+ References		: 
  --------------------
  1) Non-printing ASCII characters: 
     http://www.physics.udel.edu/~watson/scen103/ascii.html
@@ -29,14 +29,19 @@
 /* Defines */
 #define _XOPEN_SOURCE 500  // for usleep()
 #define FILE_MODE (O_CREAT | O_WRONLY | O_APPEND)
-#define BUFFER_SIZE 512
+#define BUFFER_SIZE 1024
+#define LARGE_BUFFER_SIZE 2048
 
 /* Global Variables */
 char *input_read_buffer = NULL;
+char *content_read_buffer = NULL;
 const char carriage_ret[] = "\r";
 const char newline[] = "\n";
-const char search_board[] = "s";
-size_t input_buffer_size = 0;
+const char search_board[] = "s";	// s: search board
+char ctrl_p = 16; 			// ctrl+p: prompt to post article
+char ctrl_x = 24; 			// ctrl+x: post article
+size_t input_buffer_size;
+size_t content_buffer_size;
 int socket_fd;
 int output_fd;
 
@@ -51,15 +56,18 @@ static void print_usage();
 static void stream_file(const char *filename);
 const char* get_value(char *buffer);
 static void send_data(int iswrite, const char *tagname, const char *data, int len);
+static void send_nonprinting_data(char *data, int len);
 static void enter_username(char *buffer);
 static void enter_password(char *buffer);
 static void goto_board(char *buffer);
 static void create_title(char *buffer);
+static void post_content(char *buffer);
 
 /** 
  * main:
- * @filename: the file name to parse
- * Parse the input file and get the directive
+ * @argc: Number of command-line arguments
+ * @argv: Pointer to the arguments list 
+ * make a telnet connection, stream the input file, create an output file
  */
 int 
 main(int argc, char **argv) {
@@ -81,8 +89,6 @@ main(int argc, char **argv) {
 		perror("socket");
 		exit(1);
 	}
-
-	//printf("socket_fd: %d\n", socket_fd);
 	
 	/* connect to the server */
 	printf("Connecting to 140.112.172.11 [ptt.cc]...\n");
@@ -95,7 +101,6 @@ main(int argc, char **argv) {
 	
 	/* open the file descriptor of output file */
 	output_fd = open("output.txt", FILE_MODE); 
-	//printf("output_fd: %d\n", output_fd);
 
 	/* stream the input file */
 	stream_file(argv[1]);	
@@ -123,6 +128,7 @@ print_usage() {
 static void
 stream_file(const char *filename) {
 	FILE *input_fp = NULL;
+	int ch, *next_ch;
 
 	/* Open input file to read directives */
 	input_fp = fopen(filename, "r");
@@ -136,20 +142,59 @@ stream_file(const char *filename) {
 
 		if (fgets(input_read_buffer, input_buffer_size, input_fp) != NULL) {
 	
-			if (strncmp(input_read_buffer, "<ID>", sizeof(char)*4)==0) {
-				enter_username(input_read_buffer); // input username in the login
+			if (strncmp(input_read_buffer, "<ID>", sizeof(char)*4) == 0) {
+				//enter_username(input_read_buffer); // input username in the login
+				//printf("\nid: %s\n\n", input_read_buffer);
 			}
 
-			else if (strncmp(input_read_buffer, "<PASS>", sizeof(char)*6)==0) {
-				enter_password(input_read_buffer); // input pwd in the login
+			else if (strncmp(input_read_buffer, "<PASS>", sizeof(char)*6) == 0) {
+				//enter_password(input_read_buffer); // input pwd in the login
+				//printf("\npass: %s\n\n", input_read_buffer);
 			}
 
-			else if (strncmp(input_read_buffer, "<BOARD>", sizeof(char)*7)==0) {
-				goto_board(input_read_buffer); // goto see the board
+			else if (strncmp(input_read_buffer, "<BOARD>", sizeof(char)*7) == 0) {
+				//goto_board(input_read_buffer); // goto see the board
+				//printf("\nboard: %s\n\n", input_read_buffer);
 			}
 
-			else if (strncmp(input_read_buffer, "<P>", sizeof(char)*3)==0) {
-				create_title(input_read_buffer); // create title in the board
+			else if (strncmp(input_read_buffer, "<P>", sizeof(char)*3) == 0) {
+				//create_title(input_read_buffer); // create title in the board
+				//printf("\np: %s\n\n", input_read_buffer);
+			}
+
+			else if (strncmp(input_read_buffer, "<CONTENT>", sizeof(char)*9) == 0) {
+				/* Memory allocation */
+				content_buffer_size = LARGE_BUFFER_SIZE * sizeof(char);
+				content_read_buffer = malloc(input_buffer_size);
+				
+				/* First, copy the line buffer to content buffer */				
+				
+				
+				/* We know that a tag ends with '</', so use two character 
+				   pointers to check for this while reading from input file */
+				/*int i = 1;
+				do {
+					ch = getc(input_fp);
+					printf("%c ", ch);
+					//content_read_buffer[strlen(input_read_buffer)+i] = (char)ch; 					
+					//strncpy(content_read_buffer, (const char *)ch, 1);
+					i++;
+				} while (ch != '<'); */
+				int flag = 0;
+				strncat(content_read_buffer, input_read_buffer, strlen(input_read_buffer));
+				fgets(input_read_buffer, input_buffer_size, input_fp);
+				while (strncmp(input_read_buffer, "</CONTENT>", sizeof(char)*10) != 0) {
+					
+					fgets(input_read_buffer, input_buffer_size, input_fp);
+					//if () {
+					//	flag = 1;
+						strncat(content_read_buffer, input_read_buffer, strlen(input_read_buffer));
+						//continue;
+					//}
+				}
+				printf("\nline: %s\n\n", input_read_buffer);
+				printf("\ncontent: %s\n\n", content_read_buffer);
+				//post_content(input_read_buffer); // create title in the board
 			}
 		}
 		
@@ -193,14 +238,14 @@ send_data(int iswrite, const char *tagname, const char *data, int len) {
 
 	printf("Sending data; [%s] ...\n", data);
 	if (write(socket_fd, data, sizeof(char)*(len+1)) < 0) {
-		perror("send_data; sending username");
+		perror("send_data");
 		exit(1);
 	}
 	
 	/* Input a carriage return character to complete data send */
 	printf("Return.\n");	
 	if (write(socket_fd, carriage_ret, sizeof(char)*1) < 0) {
-		perror("send_data; sending username");
+		perror("send_data; sending carriage return");
 		exit(1);
 	
 	/* Write result to the output file */
@@ -208,25 +253,47 @@ send_data(int iswrite, const char *tagname, const char *data, int len) {
 		if (iswrite) {
 			printf("Writing tagname [%s] to output file...\n", tagname);
 			if (write(output_fd, tagname, sizeof(char)*(strlen(tagname))) < 0) {
-				perror("send_data; writing username to output file");
+				perror("send_data; tagname to output file");
 				exit(1);
 			}
 
 			printf("Writing data; [%s] to output file...\n", data);
 			if (write(output_fd, data, sizeof(char)*(len+1)) < 0) {
-				perror("send_data; writing username to output file");
+				perror("send_data; data to output file");
 				exit(1);
 			}
 
 			printf("Appending new line...\n\n");
 			if (write(output_fd, newline, sizeof(char)*1) < 0) {
-				//printf("rett: %ld\n", ret);
 				perror("send_data; appending new line in output file");
 				exit(1);
 			}
 		}
+	}	
+}
+
+/** 
+ * send_nonprinting_data:
+ * @data: The data which is going to be sent to the server 
+ * @len: Length of the data
+ * Send a non-printing data to the server; it is basically for a prompt, e.g.
+ * create_title -> ctrl+p etc...
+ */
+static void
+send_nonprinting_data(char *data, int len) {
+
+	printf("Sending non-printing data; [%s] ...\n", data);
+	if (write(socket_fd, &data, sizeof(char)*(len)) < 0) {
+		perror("send_nonprinting_data; sending non-printing data");
+		exit(1);
 	}
 	
+	/* Input a carriage return character to complete data send */
+	printf("Return.\n");	
+	if (write(socket_fd, carriage_ret, sizeof(char)*1) < 0) {
+		perror("send_nonprinting_data; carriage return");
+		exit(1);
+	}
 }
 
 /** 
@@ -268,9 +335,7 @@ enter_password(char *buffer) {
 	send_data(1, "PASS: ", password, password_len);
 	usleep(2000000); // sleep 2 sec to wait respond from server
 	
-	/* get into main page of ptt */
-	//send_data(0, NULL, carriage_ret, 1);	
-	//usleep(10000);
+	/* Return two times to reach user's main page */
 	send_data(0, NULL, carriage_ret, 1);
 	usleep(1000000);
 	send_data(0, NULL, carriage_ret, 1);
@@ -293,11 +358,13 @@ goto_board(char *buffer) {
 	printf("Going to [%s] board...\n", boardname);
 	
 	/* Send the boardname data to the server */
-	send_data(0, "BOARD: ", boardname, boardname_len);
+	send_data(0, NULL, boardname, boardname_len);
 	usleep(2000000); // sleep 2 sec to wait respond from server
 
+	/* Search for the board name */
 	send_data(0, NULL, search_board, 1);
 	usleep(1000000);
+	/* Return to see the threads in the board */
 	send_data(0, NULL, carriage_ret, 1);
 	usleep(1000000);
 }
@@ -305,7 +372,7 @@ goto_board(char *buffer) {
 /** 
  * create_title:
  * @buffer: <P> ... </P> 
- * Extract the title from tags and append it to create content of it
+ * Extract the title from tags and append it to create the content of it
  */
 static void
 create_title(char *buffer) {
@@ -316,14 +383,40 @@ create_title(char *buffer) {
 	title_len = strlen(title);
 
 	printf("Creating title [%s] in the last board...\n", title);
+
+	/* Prompt for new content creation */	
+	write(socket_fd, &ctrl_p, 1);
+	usleep(1000000);
 	
 	/* Send the title data to the server */
-	send_data(0, "TITLE: ", title, title_len);
+	send_data(0, NULL, title, title_len);
+	usleep(2000000); // sleep 2 sec to wait respond from server
+}
+
+/** 
+ * post_content:
+ * @buffer: <CONTENT> ... </CONTENT> 
+ * Extract the content from tags and append it as content input
+ */
+static void
+post_content(char *buffer) {
+	const char *content;	
+	int content_len;
+	
+	content = get_value(buffer);
+	content_len = strlen(content);
+
+	printf("Posting the content: [%s] ...\n", content);
+	
+	/* Send the title data to the server */
+	//send_data(0, NULL, content, content_len);
 	usleep(2000000); // sleep 2 sec to wait respond from server
 
-	//send_data(0, NULL, search_board, 1);
-	//usleep(1000000);
-	//send_data(0, NULL, carriage_ret, 1);
-	//usleep(1000000);
+	/* Content input is done */	
+	//write(socket_fd, &ctrl_p, 1);
+	usleep(1000000);
+	/* Save it and return */
+	//send_data(0, NULL, "s\r", 2);
+	usleep(1000000); // sleep 2 sec to wait respond from server
 }
 
