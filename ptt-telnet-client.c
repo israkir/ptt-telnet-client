@@ -29,8 +29,7 @@
 /* Defines */
 #define _XOPEN_SOURCE 500  // for usleep()
 #define FILE_MODE (O_CREAT | O_WRONLY | O_APPEND)
-#define BUFFER_SIZE 1024
-#define LARGE_BUFFER_SIZE 2048
+#define BUFFER_SIZE 2048
 
 /* Global Variables */
 char *input_read_buffer = NULL;
@@ -41,7 +40,6 @@ const char search_board[] = "s";	// s: search board
 char ctrl_p = 16; 			// ctrl+p: prompt to post article
 char ctrl_x = 24; 			// ctrl+x: post article
 size_t input_buffer_size;
-size_t content_buffer_size;
 int socket_fd;
 int output_fd;
 
@@ -54,14 +52,15 @@ int output_fd;
 /* Function prototypes */
 static void print_usage();
 static void stream_file(const char *filename);
-const char* get_value(char *buffer);
+const char* clear_tag(char *buffer);
 static void send_data(int iswrite, const char *tagname, const char *data, int len);
 static void send_nonprinting_data(char *data, int len);
 static void enter_username(char *buffer);
 static void enter_password(char *buffer);
 static void goto_board(char *buffer);
 static void create_title(char *buffer);
-static void post_content(char *buffer);
+static void write_content(char *buffer);
+static void post_content();
 
 /** 
  * main:
@@ -128,7 +127,7 @@ print_usage() {
 static void
 stream_file(const char *filename) {
 	FILE *input_fp = NULL;
-	int ch, *next_ch;
+	int line_buffer_flag;
 
 	/* Open input file to read directives */
 	input_fp = fopen(filename, "r");
@@ -163,38 +162,26 @@ stream_file(const char *filename) {
 			}
 
 			else if (strncmp(input_read_buffer, "<CONTENT>", sizeof(char)*9) == 0) {
-				/* Memory allocation */
-				content_buffer_size = LARGE_BUFFER_SIZE * sizeof(char);
-				content_read_buffer = malloc(input_buffer_size);
 				
-				/* First, copy the line buffer to content buffer */				
+				line_buffer_flag = 0;
 				
-				
-				/* We know that a tag ends with '</', so use two character 
-				   pointers to check for this while reading from input file */
-				/*int i = 1;
-				do {
-					ch = getc(input_fp);
-					printf("%c ", ch);
-					//content_read_buffer[strlen(input_read_buffer)+i] = (char)ch; 					
-					//strncpy(content_read_buffer, (const char *)ch, 1);
-					i++;
-				} while (ch != '<'); */
-				int flag = 0;
-				strncat(content_read_buffer, input_read_buffer, strlen(input_read_buffer));
-				fgets(input_read_buffer, input_buffer_size, input_fp);
-				while (strncmp(input_read_buffer, "</CONTENT>", sizeof(char)*10) != 0) {
+				/* Send the content to the server using line-by-line buffering */ 
+				while (line_buffer_flag == 0) {			
+					write_content(input_read_buffer); // write one line to the content				
 					
-					fgets(input_read_buffer, input_buffer_size, input_fp);
-					//if () {
-					//	flag = 1;
-						strncat(content_read_buffer, input_read_buffer, strlen(input_read_buffer));
-						//continue;
-					//}
+					if (line_buffer_flag == 0) 
+						fgets(input_read_buffer, input_buffer_size, input_fp);
+
+					if (strstr(input_read_buffer, "</CONTENT>") != NULL) {
+						write_content(input_read_buffer); // write one line to the content
+						//printf("1line: %s\n", input_read_buffer);
+						line_buffer_flag = 1;
+					}
 				}
-				printf("\nline: %s\n\n", input_read_buffer);
-				printf("\ncontent: %s\n\n", content_read_buffer);
-				//post_content(input_read_buffer); // create title in the board
+
+				/* Writing content is done, so trigger the post command */				
+				if (line_buffer_flag == 1)
+					post_content();
 			}
 		}
 		
@@ -207,12 +194,12 @@ stream_file(const char *filename) {
 }
 
 /** 
- * get_value:
+ * clear_tag:
  * @buffer: <ID> ... </ID> 
- * Get the value of the corresponding node
+ * Clears the tag strings and returns the element of the tag
  */
 const char*
-get_value(char *buffer) {
+clear_tag(char *buffer) {
 	char *feedback = NULL;
 	int len;
 
@@ -306,7 +293,7 @@ enter_username(char *buffer) {
 	const char *username;
 	int username_len;
 	
-	username = get_value(buffer);
+	username = clear_tag(buffer);
 	username_len = strlen(username);
 	printf("Extracted username: %s\n", username);
 	
@@ -326,7 +313,7 @@ enter_password(char *buffer) {
 	const char *invisible_pass;	
 	int password_len, i;
 	
-	password = get_value(buffer);
+	password = clear_tag(buffer);
 	password_len = strlen(password);
 
 	printf("Extracted Password: %s\n", password);
@@ -352,7 +339,7 @@ goto_board(char *buffer) {
 	const char *boardname;	
 	int boardname_len;
 	
-	boardname = get_value(buffer);
+	boardname = clear_tag(buffer);
 	boardname_len = strlen(boardname);
 
 	printf("Going to [%s] board...\n", boardname);
@@ -379,7 +366,7 @@ create_title(char *buffer) {
 	const char *title;	
 	int title_len;
 	
-	title = get_value(buffer);
+	title = clear_tag(buffer);
 	title_len = strlen(title);
 
 	printf("Creating title [%s] in the last board...\n", title);
@@ -394,29 +381,44 @@ create_title(char *buffer) {
 }
 
 /** 
- * post_content:
+ * write_content:
  * @buffer: <CONTENT> ... </CONTENT> 
  * Extract the content from tags and append it as content input
  */
 static void
-post_content(char *buffer) {
+write_content(char *buffer) {
 	const char *content;	
 	int content_len;
 	
-	content = get_value(buffer);
-	content_len = strlen(content);
+	if (strstr(input_read_buffer, "<CONTENT>") != NULL) {
+		content = clear_tag(buffer);
+		content_len = strlen(buffer);
+	} else if ((strstr(input_read_buffer, "</CONTENT>") != NULL)) {
+		content = strtok(buffer, "</>");
+		content_len = strlen(content);
+	} else {
+		content = buffer;
+		content_len = strlen(buffer);
+	}
 
-	printf("Posting the content: [%s] ...\n", content);
+	printf("Writing line: [%s] as in the content...\n", content);
 	
-	/* Send the title data to the server */
-	//send_data(0, NULL, content, content_len);
+	/* Send the content data to the server */
+	send_data(0, NULL, content, content_len);
 	usleep(2000000); // sleep 2 sec to wait respond from server
-
-	/* Content input is done */	
-	//write(socket_fd, &ctrl_p, 1);
-	usleep(1000000);
-	/* Save it and return */
-	//send_data(0, NULL, "s\r", 2);
-	usleep(1000000); // sleep 2 sec to wait respond from server
 }
 
+/** 
+ * post_content:
+ * After input of content as writing it in the content part, 
+ * trigger post command to complete the posting
+ */
+static void
+post_content() {
+	/* Content input is done */	
+	write(socket_fd, &ctrl_p, 1);
+	usleep(1000000);
+	/* Save it and return */
+	send_data(0, NULL, "s\r", 2);
+	usleep(1000000); // sleep 2 sec to wait respond from server
+}
