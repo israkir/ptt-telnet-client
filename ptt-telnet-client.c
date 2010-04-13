@@ -54,13 +54,13 @@ static void print_usage();
 static void stream_file(const char *filename);
 const char* clear_tag(char *buffer);
 static void send_data(int iswrite, const char *tagname, const char *data, int len);
-static void send_nonprinting_data(char *data, int len);
 static void enter_username(char *buffer);
 static void enter_password(char *buffer);
 static void goto_board(char *buffer);
 static void create_title(char *buffer);
 static void write_content(char *buffer);
 static void post_content();
+static void logout();
 
 /** 
  * main:
@@ -142,27 +142,26 @@ stream_file(const char *filename) {
 		if (fgets(input_read_buffer, input_buffer_size, input_fp) != NULL) {
 	
 			if (strncmp(input_read_buffer, "<ID>", sizeof(char)*4) == 0) {
-				//enter_username(input_read_buffer); // input username in the login
+				enter_username(input_read_buffer); // input username in the login
 				//printf("\nid: %s\n\n", input_read_buffer);
 			}
 
 			else if (strncmp(input_read_buffer, "<PASS>", sizeof(char)*6) == 0) {
-				//enter_password(input_read_buffer); // input pwd in the login
+				enter_password(input_read_buffer); // input pwd in the login
 				//printf("\npass: %s\n\n", input_read_buffer);
 			}
 
 			else if (strncmp(input_read_buffer, "<BOARD>", sizeof(char)*7) == 0) {
-				//goto_board(input_read_buffer); // goto see the board
+				goto_board(input_read_buffer); // goto see the board
 				//printf("\nboard: %s\n\n", input_read_buffer);
 			}
 
 			else if (strncmp(input_read_buffer, "<P>", sizeof(char)*3) == 0) {
-				//create_title(input_read_buffer); // create title in the board
+				create_title(input_read_buffer); // create title in the board
 				//printf("\np: %s\n\n", input_read_buffer);
 			}
 
 			else if (strncmp(input_read_buffer, "<CONTENT>", sizeof(char)*9) == 0) {
-				
 				line_buffer_flag = 0;
 				
 				/* Send the content to the server using line-by-line buffering */ 
@@ -180,8 +179,19 @@ stream_file(const char *filename) {
 				}
 
 				/* Writing content is done, so trigger the post command */				
-				if (line_buffer_flag == 1)
+				if (line_buffer_flag == 1) {
+					printf("going to post content now..\n");					
 					post_content();
+				}
+			}
+
+			else if (strncmp(input_read_buffer, "<IP>", sizeof(char)*4) == 0) {
+
+			}
+
+			else if (strncmp(input_read_buffer, "<EXIT>", sizeof(char)*6) == 0) {
+				printf("Logging out...\n");
+				logout();
 			}
 		}
 		
@@ -206,7 +216,6 @@ clear_tag(char *buffer) {
 	feedback = strtok(buffer, "<>");
 	feedback = strtok(NULL, "<>");
 	len = strlen(feedback);
-	feedback[len+1] = '\0';	
 
 	return feedback;
 }
@@ -223,7 +232,7 @@ clear_tag(char *buffer) {
 static void
 send_data(int iswrite, const char *tagname, const char *data, int len) {
 
-	printf("Sending data; [%s] ...\n", data);
+	printf("Sending data: %s ...\n", data);
 	if (write(socket_fd, data, sizeof(char)*(len+1)) < 0) {
 		perror("send_data");
 		exit(1);
@@ -232,7 +241,7 @@ send_data(int iswrite, const char *tagname, const char *data, int len) {
 	/* Input a carriage return character to complete data send */
 	printf("Return.\n");	
 	if (write(socket_fd, carriage_ret, sizeof(char)*1) < 0) {
-		perror("send_data; sending carriage return");
+		perror("send_data: sending carriage return");
 		exit(1);
 	
 	/* Write result to the output file */
@@ -240,47 +249,23 @@ send_data(int iswrite, const char *tagname, const char *data, int len) {
 		if (iswrite) {
 			printf("Writing tagname [%s] to output file...\n", tagname);
 			if (write(output_fd, tagname, sizeof(char)*(strlen(tagname))) < 0) {
-				perror("send_data; tagname to output file");
+				perror("send_data: tagname to output file");
 				exit(1);
 			}
 
-			printf("Writing data; [%s] to output file...\n", data);
+			printf("Writing data: [%s] to output file...\n", data);
 			if (write(output_fd, data, sizeof(char)*(len+1)) < 0) {
-				perror("send_data; data to output file");
+				perror("send_data: data to output file");
 				exit(1);
 			}
 
 			printf("Appending new line...\n\n");
 			if (write(output_fd, newline, sizeof(char)*1) < 0) {
-				perror("send_data; appending new line in output file");
+				perror("send_data: appending new line in output file");
 				exit(1);
 			}
 		}
 	}	
-}
-
-/** 
- * send_nonprinting_data:
- * @data: The data which is going to be sent to the server 
- * @len: Length of the data
- * Send a non-printing data to the server; it is basically for a prompt, e.g.
- * create_title -> ctrl+p etc...
- */
-static void
-send_nonprinting_data(char *data, int len) {
-
-	printf("Sending non-printing data; [%s] ...\n", data);
-	if (write(socket_fd, &data, sizeof(char)*(len)) < 0) {
-		perror("send_nonprinting_data; sending non-printing data");
-		exit(1);
-	}
-	
-	/* Input a carriage return character to complete data send */
-	printf("Return.\n");	
-	if (write(socket_fd, carriage_ret, sizeof(char)*1) < 0) {
-		perror("send_nonprinting_data; carriage return");
-		exit(1);
-	}
 }
 
 /** 
@@ -374,6 +359,10 @@ create_title(char *buffer) {
 	/* Prompt for new content creation */	
 	write(socket_fd, &ctrl_p, 1);
 	usleep(1000000);
+
+	/* Ignore category selection */
+	send_data(0, NULL, "\r", 1);
+	usleep(1000000); // sleep 1 sec to wait respond from server
 	
 	/* Send the title data to the server */
 	send_data(0, NULL, title, title_len);
@@ -416,9 +405,27 @@ write_content(char *buffer) {
 static void
 post_content() {
 	/* Content input is done */	
-	write(socket_fd, &ctrl_p, 1);
+	write(socket_fd, &ctrl_x, 1);
 	usleep(1000000);
 	/* Save it and return */
 	send_data(0, NULL, "s\r", 2);
-	usleep(1000000); // sleep 2 sec to wait respond from server
+	usleep(1000000); // sleep 1 sec to wait respond from server
+}
+
+/** 
+ * logout:
+ * Log out from ptt.cc
+ */
+static void
+logout() {
+	/* Send bunch of 'q's to go back to main user menu and one G character to 
+	   select Goodbye */
+	send_data(0, NULL, "qqqqqqqqqqG", 12);
+	usleep(1000000); // sleep 1 sec to wait respond from server
+	send_data(0, NULL, "y", 1);
+	usleep(1000000); // sleep 1 sec to wait respond from server
+	send_data(0, NULL, "G", 1);
+	usleep(1000000); // sleep 1 sec to wait respond from server
+	send_data(0, NULL, carriage_ret, 1);
+	usleep(1000000);
 }
