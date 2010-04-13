@@ -21,6 +21,10 @@
     -or-
     <CONTENT> {something}
 	      {something more} </CONTENT>
+    -or-
+    <CONTENT>
+    {something}
+    {something more} </CONTENT>
  ============================================================================
  */
 
