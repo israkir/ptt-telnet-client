@@ -48,7 +48,7 @@ const char search_char[] = "s";		// s: search board
 const char message_char[] = "w";	// w: instant message someone
 char ctrl_p = 16; 			// ctrl+p: prompt to post article
 char ctrl_x = 24; 			// ctrl+x: post article
-char ctrl_u	= 21;			// ctrl+u: send realtime message
+char ctrl_u = 21;			// ctrl+u: send realtime message
 int iscomplete;				// 0: No, 1: Yes
 int content_mode;			// 0: post_content, 1: message_content, 2: mail_content
 int socket_fd;
@@ -203,17 +203,17 @@ stream_file(const char *filename) {
 						iscomplete = 1;
 					}
 				}
-				
+
 				/* If input content done, trigger the post command */				
-				if ((iscomplete == 1) && (content_mode = 0)) {
+				if ((iscomplete == 1) && (content_mode == 0)) {
 					iscomplete = 0; // reset
 					post_content();
 				} 
-				else if ((iscomplete == 1) && (content_mode = 1)) {
+				else if ((iscomplete == 1) && (content_mode == 1)) {
 					iscomplete = 0; // reset
 					message_content();
 				}
-				else if ((iscomplete == 1) && (content_mode = 2)) {
+				else if ((iscomplete == 1) && (content_mode == 2)) {
 					iscomplete = 0; // reset
 					mail_content();
 				}
@@ -484,7 +484,10 @@ create_mail(char *buffer) {
 	mailto = clear_tag(buffer);
 	mailto_len = strlen(mailto);
 
+	printf("Creating mail...\n");	
+	
 	/* Go back to main menu */	
+	printf("Going back to main menu...\n");
 	send_data(0, NULL, "qqqqqqqqqqM", 12);
 	send_return();
 	
@@ -512,7 +515,7 @@ post_article_title(char *buffer) {
 	/* Prompt for new article creation */	
 	create_article();
 
-	printf("Creating title [%s] in the last board...\n", title);
+	printf("Posting article title: [%s] in the last board...\n", title);
 	
 	/* Ignore category selection */
 	send_return();
@@ -535,6 +538,7 @@ post_mail_title(char *buffer) {
 	title = clear_tag(buffer);
 	title_len = strlen(title);
 	
+	printf("Posting mail title: [%s]...\n", title);
 	send_data(0, NULL, title, title_len);
 	send_return();
 }
@@ -620,8 +624,6 @@ mail_content() {
 	send_return();
 	send_space();
 }
-
-
 
 /** 
  * logout:
