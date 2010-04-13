@@ -12,8 +12,21 @@
  Project Hosting	: https://code.google.com/p/ptt-telnet-client/
  Licence		: GNU General Public License v3
 
- Notes	: 
- --------------
+ Instructions
+ ------------
+ Build/Compile		: make
+ Run			: ./ptt-telnet-client [input-filename]
+
+ Functions Implemented
+ ---------------------
+ 1) Login/Logout
+ 2) Search board
+ 3) Post Article
+ 4) Email
+ 5) Instant messaging
+
+ Notes 
+ -----
  1) All tags are assumed one line (open and close in the same line), 
     except CONTENT.
  2) CONTENT tag must follow one of these conventions:
