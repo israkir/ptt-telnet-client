@@ -2,8 +2,9 @@
  ============================================================================
  Name			: ptt-telnet-client.c
  Author			: Hakki Caner KIRMIZI, #b96902133
- Description		: A C program which is based tag-reading to get directive in 
-			    an input file for BBS: ptt.cc
+ Description		: A C program for bulletin board system (ptt.cc) 
+ 			  based on tag-reading to get directive from 
+			  an input file 
  Environment		: Ubuntu 9.10 (karmic), Kernel Linux 2.6.31-14-generic
  C Editor		: Vim 7.2.245, gedit 2.28.0
  Compiler		: gcc (Ubuntu 4.4.1-4ubuntu9) 4.4.1
@@ -11,10 +12,15 @@
  Project Hosting	: https://code.google.com/p/ptt-telnet-client/
  Licence		: GNU General Public License v3
 
- References		: 
- --------------------
- 1) Non-printing ASCII characters: 
-    http://www.physics.udel.edu/~watson/scen103/ascii.html
+ Notes	: 
+ --------------
+ 1) All tags are assumed one line (open and close in the same line), 
+    except CONTENT.
+ 2) CONTENT tag must follow one of these conventions:
+    <CONTENT> {anything comes here...} </CONTENT>
+    -or-
+    <CONTENT> {something}
+	      {something more} </CONTENT>
  ============================================================================
  */
 
@@ -32,15 +38,19 @@
 #define BUFFER_SIZE 2048
 
 /* Global Variables */
+size_t input_buffer_size;
 char *input_read_buffer = NULL;
 char *content_read_buffer = NULL;
 const char carriage_ret[] = "\r";
 const char newline[] = "\n";
 const char space[] = " ";
-const char search[] = "s";	// s: search board
+const char search_char[] = "s";		// s: search board
+const char message_char[] = "w";	// w: instant message someone
 char ctrl_p = 16; 			// ctrl+p: prompt to post article
 char ctrl_x = 24; 			// ctrl+x: post article
-size_t input_buffer_size;
+char ctrl_u	= 21;			// ctrl+u: send realtime message
+int iscomplete;				// 0: No, 1: Yes
+int content_mode;			// 0: post_content, 1: message_content, 2: mail_content
 int socket_fd;
 int output_fd;
 
@@ -54,17 +64,23 @@ int output_fd;
 static void print_usage();
 static void stream_file(const char *filename);
 const char* clear_tag(char *buffer);
-static void send_data(int iswrite, const char *tagname, const char *data, int len);
+static void search();
 static void send_space();
 static void send_return();
+static void send_message();
+static void send_data(int iswrite, const char *tagname, const char *data, int len);
 static void enter_username(char *buffer);
 static void enter_password(char *buffer);
-static void search_board();
 static void goto_board(char *buffer);
 static void create_article();
-static void create_title(char *buffer);
+static void create_realtime_message(char *buffer);
+static void create_mail(char *buffer);
+static void post_article_title(char *buffer);
+static void post_mail_title(char *buffer);
 static void write_content(char *buffer);
 static void post_content();
+static void message_content();
+static void mail_content();
 static void logout();
 
 /** 
@@ -132,7 +148,6 @@ print_usage() {
 static void
 stream_file(const char *filename) {
 	FILE *input_fp = NULL;
-	int line_buffer_flag;
 
 	/* Open input file to read directives */
 	input_fp = fopen(filename, "r");
@@ -159,38 +174,67 @@ stream_file(const char *filename) {
 			}
 
 			else if (strncmp(input_read_buffer, "<P>", sizeof(char)*3) == 0) {
-				create_title(input_read_buffer);
+				content_mode = 0;
+				post_article_title(input_read_buffer);
+			}
+			
+			else if (strncmp(input_read_buffer, "<W>", sizeof(char)*3) == 0) {
+				content_mode = 1;
+				create_realtime_message(input_read_buffer);
+			}
+			
+			else if (strncmp(input_read_buffer, "<M>", sizeof(char)*3) == 0) {
+				content_mode = 2;
+				create_mail(input_read_buffer);
 			}
 
 			else if (strncmp(input_read_buffer, "<CONTENT>", sizeof(char)*9) == 0) {
-				line_buffer_flag = 0;
+				iscomplete = 0;
 				
 				/* Send the content to the server using line-by-line buffering */ 
-				while (line_buffer_flag == 0) {			
+				while (iscomplete == 0) {			
 					write_content(input_read_buffer);				
 					
-					if (line_buffer_flag == 0) 
+					if (iscomplete == 0) 
 						fgets(input_read_buffer, input_buffer_size, input_fp);
 
 					if (strstr(input_read_buffer, "</CONTENT>") != NULL) {
 						write_content(input_read_buffer);
-						line_buffer_flag = 1;
+						iscomplete = 1;
 					}
 				}
-
-				/* Writing content is done, so trigger the post command */				
-				if (line_buffer_flag == 1) {
-					printf("going to post content now..\n");					
+				
+				/* If input content done, trigger the post command */				
+				if ((iscomplete == 1) && (content_mode = 0)) {
+					iscomplete = 0; // reset
 					post_content();
+				} 
+				else if ((iscomplete == 1) && (content_mode = 1)) {
+					iscomplete = 0; // reset
+					message_content();
 				}
+				else if ((iscomplete == 1) && (content_mode = 2)) {
+					iscomplete = 0; // reset
+					mail_content();
+				}
+				
 			}
 
 			else if (strncmp(input_read_buffer, "<IP>", sizeof(char)*4) == 0) {
-
+				//nothing for now;)
+			}
+			
+			else if (strncmp(input_read_buffer, "<TITLE>", sizeof(char)*7) == 0) {
+				post_mail_title(input_read_buffer);
 			}
 
 			else if (strncmp(input_read_buffer, "<EXIT>", sizeof(char)*6) == 0) {
 				logout();
+			}
+			
+			else {
+				fprintf(stderr, "Unrecognized input directive. Exiting...");
+				exit(1);
 			}
 		}
 		
@@ -220,6 +264,20 @@ clear_tag(char *buffer) {
 }
 
 /** 
+ * search:
+ * Trigger a prompt to search board or user
+ */
+static void
+search() {
+	printf("Prompting to search...\n");
+	if (write(socket_fd, search_char, sizeof(char)*1) < 0) {
+		perror("search board");
+		exit(1);
+	}
+	usleep(100000);
+}
+
+/** 
  * send_space:
  * Sends a space character to the server
  */
@@ -245,6 +303,20 @@ send_return() {
 	}
 	printf("Return.\n");
 	usleep(1000000); // sleep 1 sec to wait respond from server
+}
+
+/** 
+ * send_message:
+ * Trigger a prompt to send realtime message
+ */
+static void
+send_message() {
+	printf("Prompting for sending message...\n");
+	if (write(socket_fd, &ctrl_u, 1)< 0) {
+		perror("send message");
+		exit(1);
+	}
+	usleep(100000);
 }
 
 /** 
@@ -336,21 +408,6 @@ enter_password(char *buffer) {
 }
 
 /** 
- * search_board:
- * @boardname: Name of the board to search
- * Trigger a prompt to search board in the server
- */
-static void
-search_board() {
-	printf("Prompting for search board...\n");
-	if (write(socket_fd, search, sizeof(char)*1) < 0) {
-		perror("search board");
-		exit(1);
-	}
-	usleep(100000);
-}
-
-/** 
  * goto_board:
  * @buffer: <BOARD> ... </BOARD> 
  * Extract the boardname from tags and goto see it
@@ -364,7 +421,7 @@ goto_board(char *buffer) {
 	boardname_len = strlen(boardname);
 
 	/* Trigger search prompt */
-	search_board();
+	search();
 	
 	/* Send the boardname data to the server */
 	printf("Searching board: [%s]...\n", boardname);
@@ -390,12 +447,62 @@ create_article() {
 }
 
 /** 
- * create_title:
+ * create_realtime_message:
+ * @buffer: <W> ... </W> 
+ * Extract the ID from tags and send that ID a realtime message
+ */
+static void
+create_realtime_message(char *buffer) {
+	const char *messageto;
+	int messageto_len;
+	
+	messageto = clear_tag(buffer);
+	messageto_len = strlen(messageto);
+	printf("Messageto: %s\n", messageto);
+	
+	/* Prompt to send message */
+	send_message();
+	
+	/* Search messageto */
+	search();
+	
+	/* Input messageto */
+	send_data(0, NULL, messageto, messageto_len);
+	send_return();
+}
+
+/** 
+ * create_mail:
+ * @buffer: <M> ... </M> 
+ * Extract the user ID from tags and create a mail for it
+ */
+static void
+create_mail(char *buffer) {
+	const char *mailto;	
+	int mailto_len;
+	
+	mailto = clear_tag(buffer);
+	mailto_len = strlen(mailto);
+
+	/* Go back to main menu */	
+	send_data(0, NULL, "qqqqqqqqqqM", 12);
+	send_return();
+	
+	/* Click Send */
+	send_data(0, NULL, "s", 12);
+	send_return();
+	
+	send_data(0, NULL, mailto, mailto_len);
+	send_return();
+}
+
+/** 
+ * post_article_title:
  * @buffer: <P> ... </P> 
  * Extract the title from tags and append it to create the content of it
  */
 static void
-create_title(char *buffer) {
+post_article_title(char *buffer) {
 	const char *title;	
 	int title_len;
 	
@@ -416,8 +523,25 @@ create_title(char *buffer) {
 }
 
 /** 
+ * post_mail_title:
+ * @buffer: <TITLE> ... </TITLE> 
+ * Extract the title of the mail and input it
+ */
+static void
+post_mail_title(char *buffer) {
+	const char *title;	
+	int title_len;
+	
+	title = clear_tag(buffer);
+	title_len = strlen(title);
+	
+	send_data(0, NULL, title, title_len);
+	send_return();
+}
+
+/** 
  * write_content:
- * @buffer: one line content
+ * @buffer: one line buffered content
  * If need, extract the content from tags and append it as content input
  */
 static void
@@ -446,22 +570,58 @@ write_content(char *buffer) {
 
 /** 
  * post_content:
- * After content input is done, trigger post command to complete the posting
+ * Post the article content to the board
  */
 static void
 post_content() {
-	printf("Prompting for create article...\n");
+	printf("Prompting for saving the content...\n");
 	if (write(socket_fd, &ctrl_x, 1) < 0) {
 		perror("post content");
 		exit(1);
 	}
 	usleep(100000);
-
+	
 	/* Save it and return */
 	send_data(0, NULL, "s", 1);
 	send_return();
 	send_return();
 }
+
+/** 
+ * message_content:
+ * Message the content to send the user instantly
+ */
+static void
+message_content() {
+	printf("Prompting for sending message...\n");
+	if (write(socket_fd, message_char, 1)< 0) {
+		perror("create message");
+		exit(1);
+	}
+	usleep(100000);
+}
+
+/** 
+ * mail_content:
+ * Mail the content to the user
+ */
+static void
+mail_content() {
+	printf("Prompting for saving the content...\n");
+	if (write(socket_fd, &ctrl_x, 1) < 0) {
+		perror("post content");
+		exit(1);
+	}
+	usleep(100000);
+	
+	/* Save it and return */
+	send_data(0, NULL, "s", 1);
+	send_return();
+	send_return();
+	send_space();
+}
+
+
 
 /** 
  * logout:
