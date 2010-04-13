@@ -283,7 +283,7 @@ enter_username(char *buffer) {
 	printf("Extracted username: %s\n", username);
 	
 	/* Send the username data to the server */
-	send_data(1, "ID: ", username, username_len);
+	send_data(0, NULL, username, username_len);
 	usleep(10000); // sleep for a while just in case
 }
 
@@ -304,14 +304,20 @@ enter_password(char *buffer) {
 	printf("Extracted Password: %s\n", password);
 	
 	/* Send the password data to the server */
-	send_data(1, "PASS: ", password, password_len);
+	send_data(0, NULL, password, password_len);
 	usleep(2000000); // sleep 2 sec to wait respond from server
 	
 	/* Return two times to reach user's main page */
-	send_data(0, NULL, carriage_ret, 1);
-	usleep(1000000);
-	send_data(0, NULL, carriage_ret, 1);
-	usleep(1000000);
+	printf("Sending space\n");
+	if (write(socket_fd, " ", sizeof(char)*1) < 0) {
+		perror("send carriage return");
+		exit(1);
+	}
+	printf("Sending space\n");
+	if (write(socket_fd, " ", sizeof(char)*1) < 0) {
+		perror("send carriage return");
+		exit(1);
+	}
 }
 
 /** 
@@ -329,15 +335,26 @@ goto_board(char *buffer) {
 
 	printf("Going to [%s] board...\n", boardname);
 	
+	/* Search for the board name */
+	//send_data(0, NULL, search_board, 1);
+	printf("Searching board...\n");
+	if (write(socket_fd, search_board, sizeof(char)*1) < 0) {
+		perror("send carriage return");
+		exit(1);
+	}
+	usleep(1000000);
+	
 	/* Send the boardname data to the server */
 	send_data(0, NULL, boardname, boardname_len);
 	usleep(2000000); // sleep 2 sec to wait respond from server
-
-	/* Search for the board name */
-	send_data(0, NULL, search_board, 1);
-	usleep(1000000);
+	
 	/* Return to see the threads in the board */
-	send_data(0, NULL, carriage_ret, 1);
+	//send_data(0, NULL, carriage_ret, 1);
+	printf("Sending space\n");
+	if (write(socket_fd, " ", sizeof(char)*1) < 0) {
+		perror("send carriage return");
+		exit(1);
+	}
 	usleep(1000000);
 }
 
@@ -361,7 +378,12 @@ create_title(char *buffer) {
 	usleep(1000000);
 
 	/* Ignore category selection */
-	send_data(0, NULL, "\r", 1);
+	//send_data(0, NULL, "\r", 1);
+	printf("Ignoring category selection...\n");
+	if (write(socket_fd, carriage_ret, sizeof(char)*1) < 0) {
+		perror("ignore cat: send carriage return");
+		exit(1);
+	}
 	usleep(1000000); // sleep 1 sec to wait respond from server
 	
 	/* Send the title data to the server */
