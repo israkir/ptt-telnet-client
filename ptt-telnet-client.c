@@ -23,8 +23,8 @@
  1) Login/Logout
  2) Search board
  3) Post Article
- 4) Email
- 5) Instant messaging
+ 4) Send Email
+ 5) Send Instant message
 
  Notes 
  -----
