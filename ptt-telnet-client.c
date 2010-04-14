@@ -8,6 +8,7 @@
  Environment		: Ubuntu 9.10 (karmic), Kernel Linux 2.6.31-14-generic
  C Editor		: Vim 7.2.245, gedit 2.28.0
  Compiler		: gcc (Ubuntu 4.4.1-4ubuntu9) 4.4.1
+ Integration Tests	: linux2.csie.ntu.edu.tw
  Version Control	: svn, version 1.6.5 (r38866)
  Project Hosting	: https://code.google.com/p/ptt-telnet-client/
  Licence		: GNU General Public License v3
