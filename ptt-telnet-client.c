@@ -17,6 +17,7 @@
  ------------
  Build/Compile		: make
  Run			: ./ptt-telnet-client [input-filename]
+ Output			: stdout (all actions)
 
  Functions Implemented
  ---------------------
@@ -140,13 +141,13 @@ main(int argc, char **argv) {
 	}
 	
 	/* open the file descriptor of output file */
-	output_fd = open("output.txt", FILE_MODE); 
+	//output_fd = open("output.txt", FILE_MODE); 
 
 	/* stream the input file */
 	stream_file(argv[1]);
 
 	/* Done, close output file */
-	close(output_fd);	
+	//close(output_fd);	
 	
 	/* Done, close socket */
 	close(socket_fd);
@@ -552,6 +553,8 @@ create_mail(char *buffer) {
 	
 	/* Go back to main menu */	
 	printf("Going back to main menu...\n");
+	send_left();
+	send_left();
 	send_data(0, NULL, "qqqqqqqqqqM", 12);
 	send_return();
 	
