@@ -66,6 +66,7 @@ const char message_char[] = "w";	// w: instant message someone
 char ctrl_p = 16; 			// ctrl+p: prompt to post article
 char ctrl_x = 24; 			// ctrl+x: post article
 char ctrl_u = 21;			// ctrl+u: send realtime message
+char left = 29;
 int iscomplete;				// 0: No, 1: Yes
 int content_mode;			// 0: post_content, 1: message_content, 2: mail_content
 int socket_fd;
@@ -85,6 +86,7 @@ static void search();
 static void send_space();
 static void send_return();
 static void send_message();
+static void send_left();
 static void send_data(int iswrite, const char *tagname, const char *data, int len);
 static void enter_username(char *buffer);
 static void enter_password(char *buffer);
@@ -144,6 +146,9 @@ main(int argc, char **argv) {
 
 	/* Done, close output file */
 	close(output_fd);	
+	
+	/* Done, close socket */
+	close(socket_fd);
 
 	return 0;
 }
@@ -206,21 +211,40 @@ stream_file(const char *filename) {
 			}
 
 			else if (strncmp(input_read_buffer, "<CONTENT>", sizeof(char)*9) == 0) {
-				iscomplete = 0;
-				
-				/* Send the content to the server using line-by-line buffering */ 
-				while (iscomplete == 0) {			
-					write_content(input_read_buffer);				
+				/* If the open/close tags are in the same line, then directly post than buffering line-by-line */
+				if ((strstr(input_read_buffer, "</CONTENT>") != NULL) && (content_mode == 0)) {
+					write_content(input_read_buffer);
+					post_content();
+					iscomplete = 0; // reset not to go over post_content again
+				} 
+				else if ((strstr(input_read_buffer, "</CONTENT>") != NULL) && (content_mode == 1)) {
+					write_content(input_read_buffer);
+					message_content();
+					iscomplete = 0; // reset not to go over message_content again
+				}
+				else if ((strstr(input_read_buffer, "</CONTENT>") != NULL) && (content_mode == 2)) {
+					write_content(input_read_buffer);
+					mail_content();
+					iscomplete = 0; // reset not to go over mail_content again
+				}
+				/* The code here process multiple lines of content using line-by-line buffering*/
+				else {	
+					iscomplete = 0; // 0: not completed, 1: completed
 					
-					if (iscomplete == 0) 
-						fgets(input_read_buffer, input_buffer_size, input_fp);
-
-					if (strstr(input_read_buffer, "</CONTENT>") != NULL) {
+					/* Send the content to the server using line-by-line buffering */ 
+					while (iscomplete == 0) {			
 						write_content(input_read_buffer);
-						iscomplete = 1;
+						
+						if (iscomplete == 0) 
+							fgets(input_read_buffer, input_buffer_size, input_fp);
+
+						if (strstr(input_read_buffer, "</CONTENT>") != NULL) {
+							write_content(input_read_buffer);
+							iscomplete = 1;
+						}
 					}
 				}
-
+				
 				/* If input content done, trigger the post command */				
 				if ((iscomplete == 1) && (content_mode == 0)) {
 					iscomplete = 0; // reset
@@ -250,7 +274,7 @@ stream_file(const char *filename) {
 			}
 			
 			else {
-				fprintf(stderr, "Unrecognized input directive. Exiting...");
+				fprintf(stderr, "Unrecognized input directive: [%s] Exiting...", input_read_buffer);
 				exit(1);
 			}
 		}
@@ -328,9 +352,23 @@ send_return() {
  */
 static void
 send_message() {
-	printf("Prompting for sending message...\n");
+	printf("Prompting for sending message [CTRL+U]...\n");
 	if (write(socket_fd, &ctrl_u, 1)< 0) {
 		perror("send message");
+		exit(1);
+	}
+	usleep(100000);
+}
+
+/** 
+ * send_left:
+ * Send a left character signal to the server
+ */
+static void
+send_left() {
+	printf("Sending left...\n");
+	if (write(socket_fd, &left, 1) < 0) {
+		perror("send_left");
 		exit(1);
 	}
 	usleep(100000);
@@ -484,8 +522,16 @@ create_realtime_message(char *buffer) {
 	search();
 	
 	/* Input messageto */
+	printf("Sending messageto: %s\n", messageto);
 	send_data(0, NULL, messageto, messageto_len);
 	send_return();
+	
+	printf("Prompting for sending message [w]...\n");
+	if (write(socket_fd, message_char, 1)< 0) {
+		perror("message content");
+		exit(1);
+	}
+	usleep(100000);
 }
 
 /** 
@@ -501,7 +547,7 @@ create_mail(char *buffer) {
 	mailto = clear_tag(buffer);
 	mailto_len = strlen(mailto);
 
-	printf("Creating mail...\n");	
+	printf("Creating mail to %s...\n", mailto);	
 	
 	/* Go back to main menu */	
 	printf("Going back to main menu...\n");
@@ -595,7 +641,7 @@ write_content(char *buffer) {
  */
 static void
 post_content() {
-	printf("Prompting for saving the content...\n");
+	printf("Prompting for saving the content [CTRL+X]...\n");
 	if (write(socket_fd, &ctrl_x, 1) < 0) {
 		perror("post content");
 		exit(1);
@@ -605,7 +651,8 @@ post_content() {
 	/* Save it and return */
 	send_data(0, NULL, "s", 1);
 	send_return();
-	send_return();
+	send_space();
+	send_space();
 }
 
 /** 
@@ -614,12 +661,10 @@ post_content() {
  */
 static void
 message_content() {
-	printf("Prompting for sending message...\n");
-	if (write(socket_fd, message_char, 1)< 0) {
-		perror("create message");
-		exit(1);
-	}
-	usleep(100000);
+	/* Until here input of the message + Return is done,
+	   so, just confirm sending by 'y' */
+	send_data(0, NULL, "y", 1);
+	send_return();
 }
 
 /** 
@@ -628,9 +673,9 @@ message_content() {
  */
 static void
 mail_content() {
-	printf("Prompting for saving the content...\n");
+	printf("Prompting for saving the content [CTRL+X]...\n");
 	if (write(socket_fd, &ctrl_x, 1) < 0) {
-		perror("post content");
+		perror("mail content");
 		exit(1);
 	}
 	usleep(100000);
@@ -638,7 +683,10 @@ mail_content() {
 	/* Save it and return */
 	send_data(0, NULL, "s", 1);
 	send_return();
+	usleep(1000000);
+	//send_data(0, NULL, "n", 1);
 	send_return();
+	usleep(1000000);
 	send_space();
 }
 
@@ -649,6 +697,11 @@ mail_content() {
 static void
 logout() {
 	printf("Logging out...\n");
+	
+	/* If still in mail, this is the way back to main user menu */
+	send_left();
+	send_left();
+	
 	/* Send bunch of 'q's to go back to main user menu and one G character to 
 	   select Goodbye */
 	send_data(0, NULL, "qqqqqqqqqqG", 12);
