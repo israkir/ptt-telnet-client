@@ -68,7 +68,7 @@ const char message_char[] = "w";	// w: instant message someone
 char ctrl_p = 16; 			// ctrl+p: prompt to post article
 char ctrl_x = 24; 			// ctrl+x: post article
 char ctrl_u = 21;			// ctrl+u: send realtime message
-char left = 29;
+char left[3] = {0x1b,0x4f,0x44};
 int iscomplete;				// 0: No, 1: Yes
 int content_mode;			// 0: post_content, 1: message_content, 2: mail_content
 int socket_fd;
@@ -369,7 +369,7 @@ send_message() {
 static void
 send_left() {
 	printf("Sending left...\n");
-	if (write(socket_fd, &left, 1) < 0) {
+	if (write(socket_fd, &left, 3) < 0) {
 		perror("send_left");
 		exit(1);
 	}
@@ -555,11 +555,11 @@ create_mail(char *buffer) {
 	printf("Going back to main menu...\n");
 	send_left();
 	send_left();
-	send_data(0, NULL, "qqqqqqqqqqM", 12);
+	send_data(0, NULL, "qqqqqqqqqqM", 11);
 	send_return();
 	
 	/* Click Send */
-	send_data(0, NULL, "s", 12);
+	send_data(0, NULL, "s", 1);
 	send_return();
 	
 	send_data(0, NULL, mailto, mailto_len);

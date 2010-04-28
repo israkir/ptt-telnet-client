@@ -10,11 +10,13 @@
  Project Hosting	: https://code.google.com/p/ptt-telnet-client/
  Licence		: GNU General Public License v3
 
+ 
  Instructions
  ============
  Build/Compile		: make
  Run			: ./ptt-telnet-client [input-filename]
 
+ 
  Functions Implemented
  =====================
  I did not implement any function to create an output file; e.g. read mail etc...
@@ -38,7 +40,6 @@
    just before P tag.
  * In input file, in the following of P tag, there has to be a <CONTENT></CONTENT>
    tag, even though it does not contain any value within.
- NOTE: I tested this, and works pretty much well!!! 
 
  4) Send Email
  -------------
@@ -47,45 +48,13 @@
    does not contain any value inside.
  * There has to be a <CONTENT></CONTENT> tag after M tag, even though it does not
    contain any value.
- NOTE: I tested this, but there is a problem. I could not find it out why it does 
-       not send mail properly, although I 'exactly' follow the ptt.cc directive 
-       conventions in PieTTY. I assume, if there is a problem about my method, it
-       should also not work for 'Post Article' part. A probable mistake may in one
-	   of these functions:
-
-	static void create_mail(char *buffer): 
-	~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-	is called when M tag is parsed. It basically goes to main menu (by sending 
-	some 'q' sequence data to the server, and some left char data, in case user
-	is in somewhere which 'q' does not work to go back) and inputs an 'm' to
-	point 'Mail' section and clicks (returns). Then inputs an 's' to point 'Send'
-	section and returns. Finally, it inputs the ID of receiver and returns.
-
-	static void post_mail_title(char *buffer):
-	~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-	is called when Title tag is parsed. It just inputs the value extracted from
-	the tags and returns.
-	
-	static void write_content(char *buffer):
-	~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-	is called when Content tag is met. It inputs the value between tag line-by-
-	line.
-
-	static void mail_content();
-	~~~~~~~~~~~~~~~~~~~~~~~~~~~
-	is called after input content is done (it basically uses a flag based system
-	to know input is finished or not, while parsing the tags in 'stream_file()'
-	function). It triggers CTRL+X to save the content, sends an 's' to confirm it
-	and returns two times -skipping save mail option-. At the end it sends a
-	space character signal to the server to go back to Mail menu again.
-
 	
  5) Send Instant message
  -----------------------
  This is triggered when <W></W> tag is met. There are some assumptions:
  * There has to be a Content tag just after this tag, even though it does not
    contain any value.
- NOTE: I did not test this. Hopefully it works:)
+   
 
  Notes
  =====
