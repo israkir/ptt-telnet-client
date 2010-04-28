@@ -68,7 +68,7 @@ const char message_char[] = "w";	// w: instant message someone
 char ctrl_p = 16; 			// ctrl+p: prompt to post article
 char ctrl_x = 24; 			// ctrl+x: post article
 char ctrl_u = 21;			// ctrl+u: send realtime message
-char left[3] = {0x1b,0x4f,0x44};
+char left[3] = {0x1b,0x4f,0x44};	// left char: go back to previous menu; thanks to Hsu Chih-Cheng
 int iscomplete;				// 0: No, 1: Yes
 int content_mode;			// 0: post_content, 1: message_content, 2: mail_content
 int socket_fd;
