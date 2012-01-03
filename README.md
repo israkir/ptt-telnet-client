@@ -10,35 +10,26 @@ Run:
 Functions Implemented
 =====================
 
-1. Login/Logout
+1. Login/Logout: Login starts with `<ID></ID>` tag to input username and `<PASS></PASS>` to input 
+password. During the execution of the code both of them VISIBLE; i.e. printed stdout. So, be aware 
+of this.
 
-Login starts with `<ID></ID>` tag to input username and `<PASS></PASS>` to input password. During 
-the execution of the code both of them VISIBLE; i.e. printed stdout. So, be aware of this.
+2. Search board: Searching for board is triggered when `<BOARD></BOARD>` tag is met. The result of 
+this directive is the page where all threads are listed in the board.
 
-2. Search board
+3. Post Article: Post article is triggered when `<P></P>` tag is met. There are some assumptions:
+    * In order to post an article, first you have to have at least one BOARD tag just before P tag.
+    * In input file, in the following of P tag, there has to be a `<CONTENT></CONTENT>` tag, even 
+      though it does not contain any value within.
 
-Searching for board is triggered when `<BOARD></BOARD>` tag is met. The result of this directive is 
-the page where all threads are listed in the board.
+4. Send Email: Send email is triggered when `<M></M>` tag is met. There are some assumptions:
+    * There has to be a `<TITLE></TITLE>` tag just after this M tag, even though it does not contain 
+      any value inside.
+    * There has to be a `<CONTENT></CONTENT>` tag after M tag, even though it does not contain any 
+      value.
 
-3. Post Article
-
-Post article is triggered when `<P></P>` tag is met. There are some assumptions:
-* In order to post an article, first you have to have at least one BOARD tag just before P tag.
-* In input file, in the following of P tag, there has to be a `<CONTENT></CONTENT>` tag, even 
-  though it does not contain any value within.
-
-4. Send Email
-
-Send email is triggered when `<M></M>` tag is met. There are some assumptions:
-* There has to be a `<TITLE></TITLE>` tag just after this M tag, even though it does not contain 
-  any value inside.
-* There has to be a `<CONTENT></CONTENT>` tag after M tag, even though it does not contain any 
-  value.
-
-5. Send Instant message
-
-This is triggered when `<W></W>` tag is met. There are some assumptions:
-* There has to be a Content tag just after this tag, even though it does not contain any value.
+5. Send Instant message: This is triggered when `<W></W>` tag is met. There are some assumptions:
+    * There has to be a Content tag just after this tag, even though it does not contain any value.
 
 Notes
 =====
@@ -55,7 +46,7 @@ Notes
     {something}
     {something more} </CONTENT>
 
-3) I used PieTTY (v0.3.27) to test the ptt.cc tag directives in this project.
+3. I used PieTTY (v0.3.27) to test the ptt.cc tag directives in this project.
 
 -----------------------------
 
